@@ -265,10 +265,22 @@ class Configuration:
 
         self._args_to_config(config, argname='epochs',
                              logstring='Parameter --epochs detected ... '
-                             'Will run Hyperopt with for {} epochs ...'
-                             )
-
-        self._args_to_config(config, argname='spaces',
+                             'Will run Hyperopt with for {} epochs ...')
+        self._args_to_config(config,
+                             argname='effort',
+                             logstring='Parameter --effort detected ... '
+                             'Parameter --effort detected: {}')
+        self._args_to_config(config,
+                             argname='mode',
+                             logstring='Hyperopt will run in {} mode ...')
+        self._args_to_config(config,
+                             argname='explore',
+                             logstring='Acquisition strategy set to random {}...')
+        self._args_to_config(config,
+                             argname='n_points',
+                             logstring='Optimizers will be asked for {} points...')
+        self._args_to_config(config,
+                             argname='spaces',
                              logstring='Parameter -s/--spaces detected: {}')
 
         self._args_to_config(config, argname='print_all',

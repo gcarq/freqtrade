@@ -8,9 +8,13 @@ from typing import List, Tuple
 
 DEFAULT_CONFIG = 'config.json'
 DEFAULT_EXCHANGE = 'bittrex'
-PROCESS_THROTTLE_SECS = 5  # sec
-HYPEROPT_EPOCH = 100  # epochs
-RETRY_TIMEOUT = 30  # sec
+PROCESS_THROTTLE_SECS = 5    # sec
+HYPEROPT_EPOCH = 0    # epochs
+HYPEROPT_EFFORT = 0.    # tune max epoch count
+HYPEROPT_N_POINTS = 1    # tune iterations between estimations
+HYPEROPT_MODE = 'single'
+HYPEROPT_LIE_STRAT = 'default'
+RETRY_TIMEOUT = 30    # sec
 DEFAULT_HYPEROPT_LOSS = 'DefaultHyperOptLoss'
 DEFAULT_DB_PROD_URL = 'sqlite:///tradesv3.sqlite'
 DEFAULT_DB_DRYRUN_URL = 'sqlite:///tradesv3.dryrun.sqlite'

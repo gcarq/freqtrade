@@ -482,6 +482,7 @@ def test_no_log_if_loss_does_not_improve(hyperopt, caplog) -> None:
 def test_save_results_saves_epochs(mocker, hyperopt, testdatadir, caplog) -> None:
     epochs = create_results(mocker, hyperopt, testdatadir)
     mock_dump = mocker.patch('freqtrade.optimize.hyperopt.dump', return_value=None)
+    mocker.patch('freqtrade.optimize.hyperopt.Hyperopt.save_opts')
     results_file = testdatadir / 'optimize' / 'ut_results.pickle'
 
     caplog.set_level(logging.DEBUG)
@@ -529,7 +530,7 @@ def test_start_calls_optimizer(mocker, default_conf, caplog, capsys) -> None:
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result',
             'params': {'buy': {}, 'sell': {}, 'roi': {}, 'stoploss': 0.0},
@@ -564,8 +565,11 @@ def test_start_calls_optimizer(mocker, default_conf, caplog, capsys) -> None:
     out, err = capsys.readouterr()
     assert 'Best result:\n\n*    1/1: foo result Objective: 1.00000\n' in out
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called 3 times, from:
+    # 1  tickerdata
+    # 1 save_trials
+    # 1 save_opts
+    assert dumper.call_count == 3
     assert hasattr(hyperopt.backtesting.strategy, "advise_sell")
     assert hasattr(hyperopt.backtesting.strategy, "advise_buy")
     assert hasattr(hyperopt, "max_open_trades")
@@ -686,13 +690,14 @@ def test_buy_strategy_generator(hyperopt, testdatadir) -> None:
     assert 1 in result['buy']
 
 
-def test_generate_optimizer(mocker, default_conf) -> None:
-    default_conf.update({'config': 'config.json.example',
-                         'hyperopt': 'DefaultHyperOpt',
-                         'timerange': None,
-                         'spaces': 'all',
-                         'hyperopt_min_trades': 1,
-                         })
+def test_backtest_params(mocker, default_conf) -> None:
+    default_conf.update({
+        'config': 'config.json.example',
+        'hyperopt': 'DefaultHyperOpt',
+        'timerange': None,
+        'spaces': 'all',
+        'hyperopt_min_trades': 1,
+    })
 
     trades = [
         ('TRX/BTC', 0.023117, 0.000233, 100)
@@ -792,8 +797,8 @@ def test_generate_optimizer(mocker, default_conf) -> None:
 
     hyperopt = Hyperopt(default_conf)
     hyperopt.dimensions = hyperopt.hyperopt_space()
-    generate_optimizer_value = hyperopt.generate_optimizer(list(optimizer_param.values()))
-    assert generate_optimizer_value == response_expected
+    backtest_params_value = hyperopt.backtest_params(list(optimizer_param.values()))
+    assert backtest_params_value == response_expected
 
 
 def test_clean_hyperopt(mocker, default_conf, caplog):
@@ -809,7 +814,8 @@ def test_clean_hyperopt(mocker, default_conf, caplog):
     unlinkmock = mocker.patch("freqtrade.optimize.hyperopt.Path.unlink", MagicMock())
     h = Hyperopt(default_conf)
 
-    assert unlinkmock.call_count == 2
+    # once for tickerdata, once for trials, once for optimizers (list)
+    assert unlinkmock.call_count == 3
     assert log_has(f"Removing `{h.data_pickle_file}`.", caplog)
 
 
@@ -841,7 +847,7 @@ def test_print_json_spaces_all(mocker, default_conf, caplog, capsys) -> None:
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {},
             'params_details': {
@@ -886,8 +892,11 @@ def test_print_json_spaces_all(mocker, default_conf, caplog, capsys) -> None:
     )
     assert result_str in out  # noqa: E501
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called 3 times from:
+    # 1 tickerdata
+    # 1 save_trials
+    # 1 save_opts
+    assert dumper.call_count == 3
 
 
 def test_print_json_spaces_default(mocker, default_conf, caplog, capsys) -> None:
@@ -900,7 +909,7 @@ def test_print_json_spaces_default(mocker, default_conf, caplog, capsys) -> None
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {},
             'params_details': {
@@ -940,8 +949,11 @@ def test_print_json_spaces_default(mocker, default_conf, caplog, capsys) -> None
     out, err = capsys.readouterr()
     assert '{"params":{"mfi-value":null,"sell-mfi-value":null},"minimal_roi":{},"stoploss":null}' in out  # noqa: E501
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called three times, from:
+    # 1 tickerdata
+    # 1 save_trials
+    # 1 save_opts
+    assert dumper.call_count == 3
 
 
 def test_print_json_spaces_roi_stoploss(mocker, default_conf, caplog, capsys) -> None:
@@ -954,7 +966,7 @@ def test_print_json_spaces_roi_stoploss(mocker, default_conf, caplog, capsys) ->
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {},
             'params_details': {'roi': {}, 'stoploss': {'stoploss': None}},
@@ -990,8 +1002,11 @@ def test_print_json_spaces_roi_stoploss(mocker, default_conf, caplog, capsys) ->
     out, err = capsys.readouterr()
     assert '{"minimal_roi":{},"stoploss":null}' in out
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called three times from:
+    # 1 for tickerdata
+    # 1 for save_trials
+    # 1 for save_opts
+    assert dumper.call_count == 3
 
 
 def test_simplified_interface_roi_stoploss(mocker, default_conf, caplog, capsys) -> None:
@@ -1004,7 +1019,7 @@ def test_simplified_interface_roi_stoploss(mocker, default_conf, caplog, capsys)
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {'stoploss': 0.0},
             'results_metrics':
@@ -1042,8 +1057,11 @@ def test_simplified_interface_roi_stoploss(mocker, default_conf, caplog, capsys)
     out, err = capsys.readouterr()
     assert 'Best result:\n\n*    1/1: foo result Objective: 1.00000\n' in out
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called three times, from:
+    # 1 for tickerdata
+    # 1 for save_trials
+    # 1 for save_opts
+    assert dumper.call_count == 3
     assert hasattr(hyperopt.backtesting.strategy, "advise_sell")
     assert hasattr(hyperopt.backtesting.strategy, "advise_buy")
     assert hasattr(hyperopt, "max_open_trades")
@@ -1092,7 +1110,7 @@ def test_simplified_interface_buy(mocker, default_conf, caplog, capsys) -> None:
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {},
             'results_metrics':
@@ -1119,7 +1137,7 @@ def test_simplified_interface_buy(mocker, default_conf, caplog, capsys) -> None:
     hyperopt.custom_hyperopt.generate_roi_table = MagicMock(return_value={})
 
     # TODO: sell_strategy_generator() is actually not called because
-    # run_optimizer_parallel() is mocked
+    # run_backtest_parallel() is mocked
     del hyperopt.custom_hyperopt.__class__.sell_strategy_generator
     del hyperopt.custom_hyperopt.__class__.sell_indicator_space
 
@@ -1130,8 +1148,11 @@ def test_simplified_interface_buy(mocker, default_conf, caplog, capsys) -> None:
     out, err = capsys.readouterr()
     assert 'Best result:\n\n*    1/1: foo result Objective: 1.00000\n' in out
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called three times, from:
+    # 1 tickerdata
+    # 1 save_trials
+    # 1 save_opts
+    assert dumper.call_count == 3
     assert hasattr(hyperopt.backtesting.strategy, "advise_sell")
     assert hasattr(hyperopt.backtesting.strategy, "advise_buy")
     assert hasattr(hyperopt, "max_open_trades")
@@ -1149,7 +1170,7 @@ def test_simplified_interface_sell(mocker, default_conf, caplog, capsys) -> None
     )
 
     parallel = mocker.patch(
-        'freqtrade.optimize.hyperopt.Hyperopt.run_optimizer_parallel',
+        'freqtrade.optimize.hyperopt.Hyperopt.run_backtest_parallel',
         MagicMock(return_value=[{
             'loss': 1, 'results_explanation': 'foo result', 'params': {},
             'results_metrics':
@@ -1176,7 +1197,7 @@ def test_simplified_interface_sell(mocker, default_conf, caplog, capsys) -> None
     hyperopt.custom_hyperopt.generate_roi_table = MagicMock(return_value={})
 
     # TODO: buy_strategy_generator() is actually not called because
-    # run_optimizer_parallel() is mocked
+    # run_backtest_parallel() is mocked
     del hyperopt.custom_hyperopt.__class__.buy_strategy_generator
     del hyperopt.custom_hyperopt.__class__.indicator_space
 
@@ -1187,8 +1208,11 @@ def test_simplified_interface_sell(mocker, default_conf, caplog, capsys) -> None
     out, err = capsys.readouterr()
     assert 'Best result:\n\n*    1/1: foo result Objective: 1.00000\n' in out
     assert dumper.called
-    # Should be called twice, once for historical candle data, once to save evaluations
-    assert dumper.call_count == 2
+    # Should be called three times, from:
+    # 1 tickerdata
+    # 1 save_trials
+    # 1 save_opt  s
+    assert dumper.call_count == 3
     assert hasattr(hyperopt.backtesting.strategy, "advise_sell")
     assert hasattr(hyperopt.backtesting.strategy, "advise_buy")
     assert hasattr(hyperopt, "max_open_trades")
