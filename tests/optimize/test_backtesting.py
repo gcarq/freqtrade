@@ -90,7 +90,6 @@ def simple_backtest(config, contour, mocker, testdatadir) -> None:
     assert isinstance(processed, dict)
     results = backtesting.backtest(
         processed=processed,
-        stake_amount=config['stake_amount'],
         start_date=min_date,
         end_date=max_date,
         max_open_trades=1,
@@ -111,7 +110,6 @@ def _make_backtest_conf(mocker, datadir, conf=None, pair='UNITTEST/BTC'):
     min_date, max_date = get_timerange(processed)
     return {
         'processed': processed,
-        'stake_amount': conf['stake_amount'],
         'start_date': min_date,
         'end_date': max_date,
         'max_open_trades': 10,
@@ -354,7 +352,6 @@ def test_backtesting_start(default_conf, mocker, testdatadir, caplog) -> None:
     # check the logs, that will contain the backtest result
     exists = [
         'Using stake_currency: BTC ...',
-        'Using stake_amount: 0.001 ...',
         'Backtesting with data from 2017-11-14 21:17:00 '
         'up to 2017-11-14 22:59:00 (0 days)..'
     ]
@@ -458,7 +455,6 @@ def test_backtest(default_conf, fee, mocker, testdatadir) -> None:
     min_date, max_date = get_timerange(processed)
     results = backtesting.backtest(
         processed=processed,
-        stake_amount=default_conf['stake_amount'],
         start_date=min_date,
         end_date=max_date,
         max_open_trades=10,
@@ -513,7 +509,6 @@ def test_backtest_1min_timeframe(default_conf, fee, mocker, testdatadir) -> None
     min_date, max_date = get_timerange(processed)
     results = backtesting.backtest(
         processed=processed,
-        stake_amount=default_conf['stake_amount'],
         start_date=min_date,
         end_date=max_date,
         max_open_trades=1,
@@ -668,7 +663,6 @@ def test_backtest_multi_pair(default_conf, fee, mocker, tres, pair, testdatadir)
     min_date, max_date = get_timerange(processed)
     backtest_conf = {
         'processed': processed,
-        'stake_amount': default_conf['stake_amount'],
         'start_date': min_date,
         'end_date': max_date,
         'max_open_trades': 3,
@@ -684,7 +678,6 @@ def test_backtest_multi_pair(default_conf, fee, mocker, tres, pair, testdatadir)
 
     backtest_conf = {
         'processed': processed,
-        'stake_amount': default_conf['stake_amount'],
         'start_date': min_date,
         'end_date': max_date,
         'max_open_trades': 1,
@@ -723,7 +716,6 @@ def test_backtest_start_timerange(default_conf, mocker, caplog, testdatadir):
         'Parameter --timerange detected: 1510694220-1510700340 ...',
         f'Using data directory: {testdatadir} ...',
         'Using stake_currency: BTC ...',
-        'Using stake_amount: 0.001 ...',
         'Loading data from 2017-11-14 20:57:00 '
         'up to 2017-11-14 22:58:00 (0 days)..',
         'Backtesting with data from 2017-11-14 21:17:00 '
@@ -787,7 +779,6 @@ def test_backtest_start_multi_strat(default_conf, mocker, caplog, testdatadir):
         'Parameter --timerange detected: 1510694220-1510700340 ...',
         f'Using data directory: {testdatadir} ...',
         'Using stake_currency: BTC ...',
-        'Using stake_amount: 0.001 ...',
         'Loading data from 2017-11-14 20:57:00 '
         'up to 2017-11-14 22:58:00 (0 days)..',
         'Backtesting with data from 2017-11-14 21:17:00 '
@@ -866,7 +857,6 @@ def test_backtest_start_multi_strat_nomock(default_conf, mocker, caplog, testdat
         'Parameter --timerange detected: 1510694220-1510700340 ...',
         f'Using data directory: {testdatadir} ...',
         'Using stake_currency: BTC ...',
-        'Using stake_amount: 0.001 ...',
         'Loading data from 2017-11-14 20:57:00 '
         'up to 2017-11-14 22:58:00 (0 days)..',
         'Backtesting with data from 2017-11-14 21:17:00 '
