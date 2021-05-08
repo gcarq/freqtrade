@@ -188,7 +188,7 @@ class FreqtradeBot(LoggingMixin):
         if self.get_free_open_trades():
             self.enter_positions()
 
-        Trade.query.session.flush()
+        Trade.commit()
 
     def process_stopped(self) -> None:
         """
@@ -620,7 +620,7 @@ class FreqtradeBot(LoggingMixin):
             self.update_trade_state(trade, order_id, order)
 
         Trade.query.session.add(trade)
-        Trade.query.session.flush()
+        Trade.commit()
 
         # Updating wallets
         self.wallets.update()
@@ -706,6 +706,7 @@ class FreqtradeBot(LoggingMixin):
                 if (self.strategy.order_types.get('stoploss_on_exchange') and
                         self.handle_stoploss_on_exchange(trade)):
                     trades_closed += 1
+                    Trade.commit()
                     continue
                 # Check if we can sell our current pair
                 if trade.open_order_id is None and trade.is_open and self.handle_trade(trade):
@@ -1034,6 +1035,7 @@ class FreqtradeBot(LoggingMixin):
 
             elif order['side'] == 'sell':
                 self.handle_cancel_sell(trade, order, constants.CANCEL_REASON['ALL_CANCELLED'])
+        Trade.commit()
 
     def handle_cancel_buy(self, trade: Trade, order: Dict, reason: str) -> bool:
         """
@@ -1219,7 +1221,7 @@ class FreqtradeBot(LoggingMixin):
         # In case of market sell orders the order can be closed immediately
         if order.get('status', 'unknown') == 'closed':
             self.update_trade_state(trade, trade.open_order_id, order)
-        Trade.query.session.flush()
+        Trade.commit()
 
         # Lock pair for one candle to prevent immediate rebuys
         self.strategy.lock_pair(trade.pair, datetime.now(timezone.utc),
@@ -1360,6 +1362,7 @@ class FreqtradeBot(LoggingMixin):
             # Handling of this will happen in check_handle_timeout.
             return True
         trade.update(order)
+        Trade.commit()
 
         # Updating wallets when order is closed
         if not trade.is_open:

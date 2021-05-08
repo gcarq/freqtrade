@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import arrow
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from freqtrade import constants
 from freqtrade.exceptions import DependencyException, OperationalException
@@ -486,9 +486,10 @@ def test_migrate_old(mocker, default_conf, fee):
     mocker.patch('freqtrade.persistence.models.create_engine', lambda *args, **kwargs: engine)
 
     # Create table using the old format
-    engine.execute(create_table_old)
-    engine.execute(insert_table_old)
-    engine.execute(insert_table_old2)
+    with engine.begin() as connection:
+        connection.execute(text(create_table_old))
+        connection.execute(text(insert_table_old))
+        connection.execute(text(insert_table_old2))
     # Run init to test migration
     init_db(default_conf['db_url'], default_conf['dry_run'])
 
@@ -579,15 +580,16 @@ def test_migrate_new(mocker, default_conf, fee, caplog):
     mocker.patch('freqtrade.persistence.models.create_engine', lambda *args, **kwargs: engine)
 
     # Create table using the old format
-    engine.execute(create_table_old)
-    engine.execute("create index ix_trades_is_open on trades(is_open)")
-    engine.execute("create index ix_trades_pair on trades(pair)")
-    engine.execute(insert_table_old)
+    with engine.begin() as connection:
+        connection.execute(text(create_table_old))
+        connection.execute(text("create index ix_trades_is_open on trades(is_open)"))
+        connection.execute(text("create index ix_trades_pair on trades(pair)"))
+        connection.execute(text(insert_table_old))
 
-    # fake previous backup
-    engine.execute("create table trades_bak as select * from trades")
+        # fake previous backup
+        connection.execute(text("create table trades_bak as select * from trades"))
 
-    engine.execute("create table trades_bak1 as select * from trades")
+        connection.execute(text("create table trades_bak1 as select * from trades"))
     # Run init to test migration
     init_db(default_conf['db_url'], default_conf['dry_run'])
 
@@ -665,8 +667,9 @@ def test_migrate_mid_state(mocker, default_conf, fee, caplog):
     mocker.patch('freqtrade.persistence.models.create_engine', lambda *args, **kwargs: engine)
 
     # Create table using the old format
-    engine.execute(create_table_old)
-    engine.execute(insert_table_old)
+    with engine.begin() as connection:
+        connection.execute(text(create_table_old))
+        connection.execute(text(insert_table_old))
 
     # Run init to test migration
     init_db(default_conf['db_url'], default_conf['dry_run'])
@@ -1231,6 +1234,7 @@ def test_Trade_object_idem():
     excludes = (
         'delete',
         'session',
+        'commit',
         'query',
         'open_date',
         'get_best_pair',

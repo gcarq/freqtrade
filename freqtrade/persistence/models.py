@@ -9,10 +9,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import (Boolean, Column, DateTime, Float, ForeignKey, Integer, String,
                         create_engine, desc, func, inspect)
 from sqlalchemy.exc import NoSuchModuleError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Query, relationship
-from sqlalchemy.orm.scoping import scoped_session
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm import Query, declarative_base, relationship, scoped_session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.sql.schema import UniqueConstraint
 
@@ -50,7 +47,7 @@ def init_db(db_url: str, clean_open_orders: bool = False) -> None:
         })
 
     try:
-        engine = create_engine(db_url, **kwargs)
+        engine = create_engine(db_url, future=True, **kwargs)
     except NoSuchModuleError:
         raise OperationalException(f"Given value for db_url: '{db_url}' "
                                    f"is no valid database URL! (See {_SQL_DOCS_URL})")
@@ -58,7 +55,7 @@ def init_db(db_url: str, clean_open_orders: bool = False) -> None:
     # https://docs.sqlalchemy.org/en/13/orm/contextual.html#thread-local-scope
     # Scoped sessions proxy requests to the appropriate thread-local session.
     # We should use the scoped_session object - not a seperately initialized version
-    Trade._session = scoped_session(sessionmaker(bind=engine, autoflush=True, autocommit=True))
+    Trade._session = scoped_session(sessionmaker(bind=engine, autoflush=True))
     Trade.query = Trade._session.query_property()
     Order.query = Trade._session.query_property()
     PairLock.query = Trade._session.query_property()
@@ -77,7 +74,7 @@ def cleanup_db() -> None:
     Flushes all pending operations to disk.
     :return: None
     """
-    Trade.query.session.flush()
+    Trade.commit()
 
 
 def clean_dry_run_db() -> None:
@@ -89,6 +86,7 @@ def clean_dry_run_db() -> None:
         # Check we are updating only a dry_run order not a prod one
         if 'dry_run' in trade.open_order_id:
             trade.open_order_id = None
+    Trade.commit()
 
 
 class Order(_DECL_BASE):
@@ -175,6 +173,7 @@ class Order(_DECL_BASE):
         if filtered_orders:
             oobj = filtered_orders[0]
             oobj.update_from_ccxt_object(order)
+            Order.query.session.commit()
         else:
             logger.warning(f"Did not find order for {order}.")
 
@@ -710,7 +709,11 @@ class Trade(_DECL_BASE, LocalTrade):
             Order.query.session.delete(order)
 
         Trade.query.session.delete(self)
-        Trade.query.session.flush()
+        Trade.commit()
+
+    @staticmethod
+    def commit():
+        Trade.query.session.commit()
 
     @staticmethod
     def get_trades_proxy(*, pair: str = None, is_open: bool = None,
